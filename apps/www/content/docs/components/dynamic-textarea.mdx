@@ -1,0 +1,348 @@
+---
+title: DynamicTextarea
+description: A textarea component that automatically adjusts its height based on content, providing a seamless user experience for varying text lengths.
+component: true
+---
+
+<ComponentExample src="/components/examples/dynamic-textarea" />
+
+## Installation
+
+<Tabs defaultValue="cli">
+
+<TabsList>
+  <TabsTrigger value="cli">CLI</TabsTrigger>
+  <TabsTrigger value="manual">Manual</TabsTrigger>
+</TabsList>
+
+<TabsContent value="cli">
+
+```bash
+npx shadcn@latest add dynamic-textarea
+```
+
+</TabsContent>
+
+<TabsContent value="manual">
+
+<Steps>
+
+<Step>Copy and paste the following code into your project.</Step>
+
+```tsx file="components/ui/dynamic-textarea.tsx"
+"use client"
+
+import * as React from "react"
+import { cn } from "@/lib/utils"
+
+export interface DynamicTextareaProps
+  extends React.TextareaHTMLAttributes<HTMLTextAreaElement> {
+  onResize?: (height: number) => void
+  maxHeight?: number
+}
+
+const DynamicTextarea = React.forwardRef<HTMLTextAreaElement, DynamicTextareaProps>(
+  ({ className, onResize, maxHeight, ...props }, ref) => {
+    const textareaRef = React.useRef<HTMLTextAreaElement>(null)
+    const [height, setHeight] = React.useState<number>(0)
+
+    const adjustHeight = React.useCallback(() => {
+      const textarea = textareaRef.current
+      if (textarea) {
+        textarea.style.height = 'auto'
+        const newHeight = Math.min(
+          Math.max(textarea.scrollHeight, 80),
+          maxHeight || Infinity
+        )
+        textarea.style.height = `${newHeight}px`
+        setHeight(newHeight)
+        onResize?.(newHeight)
+      }
+    }, [maxHeight, onResize])
+
+    React.useEffect(() => {
+      adjustHeight()
+    }, [adjustHeight, props.value])
+
+    React.useEffect(() => {
+      window.addEventListener('resize', adjustHeight)
+      return () => window.removeEventListener('resize', adjustHeight)
+    }, [adjustHeight])
+
+    return (
+      <textarea
+        {...props}
+        ref={(element) => {
+          textareaRef.current = element
+          if (typeof ref === 'function') {
+            ref(element)
+          } else if (ref) {
+            ref.current = element
+          }
+        }}
+        className={cn(
+          "flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50",
+          className
+        )}
+        style={{
+          height: height ? `${height}px` : undefined,
+          resize: 'none',
+          overflow: 'hidden',
+          ...props.style,
+        }}
+      />
+    )
+  }
+)
+DynamicTextarea.displayName = "DynamicTextarea"
+
+export { DynamicTextarea }
+```
+
+<Step>Update the import statements to use your project's utility functions.</Step>
+
+```tsx
+import { cn } from "@/lib/utils"
+```
+
+</Steps>
+
+</TabsContent>
+
+</Tabs>
+
+## Usage
+
+The DynamicTextarea component can be used similarly to a regular textarea, with additional props for controlling its dynamic behavior.
+
+```tsx
+import { DynamicTextarea } from "@/components/ui/dynamic-textarea"
+
+export function TextareaDemo() {
+  return (
+    <DynamicTextarea 
+      placeholder="Type your message here..." 
+      maxHeight={300}
+      onResize={(height) => console.log(`New height: ${height}px`)}
+    />
+  )
+}
+```
+
+## Examples
+
+### Basic usage
+
+This example demonstrates a basic usage of the DynamicTextarea component with a button to fill it with sample text.
+
+<ComponentExample src="/components/examples/dynamic-textarea" />
+
+```tsx
+"use client"
+
+import * as React from "react"
+import { DynamicTextarea } from "@/components/ui/dynamic-textarea"
+import { Button } from "@/components/ui/button"
+import { Label } from "@/components/ui/label"
+
+export default function DynamicTextareaDemo() {
+  const [value, setValue] = React.useState("")
+  const [height, setHeight] = React.useState(80)
+
+  return (
+    <div className="grid w-full gap-2">
+      <Label htmlFor="dynamic-textarea">Dynamic Textarea</Label>
+      <DynamicTextarea
+        id="dynamic-textarea"
+        placeholder="Type your message here..."
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        onResize={setHeight}
+        maxHeight={300}
+      />
+      <div className="flex justify-between text-sm text-muted-foreground">
+        <span>Current height: {height}px</span>
+        <span>Character count: {value.length}</span>
+      </div>
+      <Button
+        onClick={() => {
+          setValue("This is a long text to demonstrate the dynamic resizing capability of this textarea. As you can see, it will grow to accommodate the content, but only up to the maxHeight specified.")
+        }}
+      >
+        Fill with sample text
+      </Button>
+    </div>
+  )
+}
+```
+
+### With form validation
+
+This example shows how to use the DynamicTextarea within a form with validation.
+
+```tsx
+"use client"
+
+import * as React from "react"
+import { zodResolver } from "@hookform/resolvers/zod"
+import { useForm } from "react-hook-form"
+import * as z from "zod"
+
+import { Button } from "@/components/ui/button"
+import {
+  Form,
+  FormControl,
+  FormDescription,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form"
+import { DynamicTextarea } from "@/components/ui/dynamic-textarea"
+import { toast } from "@/components/ui/use-toast"
+
+const FormSchema = z.object({
+  bio: z
+    .string()
+    .min(10, {
+      message: "Bio must be at least 10 characters.",
+    })
+    .max(160, {
+      message: "Bio must not be longer than 160 characters.",
+    }),
+})
+
+export function DynamicTextareaForm() {
+  const form = useForm<z.infer<typeof FormSchema>>({
+    resolver: zodResolver(FormSchema),
+  })
+
+  function onSubmit(data: z.infer<typeof FormSchema>) {
+    toast({
+      title: "You submitted the following values:",
+      description: (
+        <pre className="mt-2 w-[340px] rounded-md bg-slate-950 p-4">
+          <code className="text-white">{JSON.stringify(data, null, 2)}</code>
+        </pre>
+      ),
+    })
+  }
+
+  return (
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+        <FormField
+          control={form.control}
+          name="bio"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Bio</FormLabel>
+              <FormControl>
+                <DynamicTextarea
+                  placeholder="Tell us a little bit about yourself"
+                  className="resize-none"
+                  {...field}
+                />
+              </FormControl>
+              <FormDescription>
+                Your bio must be between 10 and 160 characters.
+              </FormDescription>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <Button type="submit">Submit</Button>
+      </form>
+    </Form>
+  )
+}
+```
+
+## Props
+
+The DynamicTextarea component extends the HTMLTextAreaElement props and includes the following additional props:
+
+<PropsTable
+  data={[
+    {
+      name: "onResize",
+      type: "(height: number) => void",
+      description: "Callback function that is called when the textarea is resized.",
+    },
+    {
+      name: "maxHeight",
+      type: "number",
+      description: "Maximum height of the textarea in pixels.",
+    },
+  ]}
+/>
+
+## Accessibility
+
+The DynamicTextarea component inherits all accessibility features from the native `<textarea>` element. It supports keyboard navigation and can be used with screen readers.
+
+When using this component, ensure you provide appropriate labels and descriptions for screen reader users:
+
+```tsx
+<Label htmlFor="message">Message</Label>
+<DynamicTextarea id="message" placeholder="Type your message here..." />
+```
+
+## Customization
+
+You can customize the appearance of the DynamicTextarea component using Tailwind CSS classes or by applying your own styles.
+
+```tsx
+<DynamicTextarea
+  className="min-h-[100px] bg-secondary text-secondary-foreground"
+  placeholder="Custom styled textarea"
+/>
+```
+
+Remember to consider the visual feedback for different states (focus, disabled) when customizing the component.
+
+You can also extend the component to add custom functionality. Here's an example that adds a character count feature:
+
+```tsx
+import * as React from "react"
+import { DynamicTextarea, DynamicTextareaProps } from "@/components/ui/dynamic-textarea"
+
+interface CustomDynamicTextareaProps extends DynamicTextareaProps {
+  characterLimit?: number
+}
+
+const CustomDynamicTextarea = React.forwardRef<HTMLTextAreaElement, CustomDynamicTextareaProps>(
+  ({ characterLimit, ...props }, ref) => {
+    const [charCount, setCharCount] = React.useState(0)
+
+    const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+      setCharCount(e.target.value.length)
+      props.onChange?.(e)
+    }
+
+    return (
+      <div>
+        <DynamicTextarea {...props} onChange={handleChange} ref={ref} />
+        {characterLimit && (
+          <p className="text-sm text-muted-foreground mt-1">
+            {charCount}/{characterLimit} characters
+          </p>
+        )}
+      </div>
+    )
+  }
+)
+CustomDynamicTextarea.displayName = "CustomDynamicTextarea"
+
+export function CustomTextareaDemo() {
+  return (
+    <CustomDynamicTextarea
+      placeholder="Type your message here..."
+      characterLimit={100}
+    />
+  )
+}
+```
+
+This custom component adds a character count feature to the DynamicTextarea, displaying the current character count and limit below the textarea.
+
